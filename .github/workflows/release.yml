@@ -1,0 +1,38 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
+      - name: Package Release Artifacts
+        run: |
+          mkdir -p release/SecretScript
+          # Use find to locate the built files in case of varying output paths
+          find .godot/mono/temp/bin/Release/ -name "SecretScript.dll" -exec cp {} release/SecretScript/ \;
+          cp SecretScript.json release/SecretScript/
+          find .godot/mono/temp/bin/Release/ -name "SecretScript.pck" -exec cp {} release/SecretScript/ \;
+          cd release
+          zip -r ../SecretScript-v${{ steps.version.outputs.version }}.zip SecretScript
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SecretScript-v${{ steps.version.outputs.version }}.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
